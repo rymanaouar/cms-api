@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Blog</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+
+        body { font-family:sans-serif; background:#f5f5f5; color:#1a1a1a; }
+
+        .navbar {
+            background:white;
+            border-bottom:1px solid #e0e0e0;
+            padding:16px 32px;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+        }
+
+        .navbar h1 { font-size:20px; font-weight:600; color:#6c63ff; }
+
+        .container { max-width:700px; margin:40px auto; padding:0 24px; }
+
+        .article {
+            background:white;
+            border:1px solid #e0e0e0;
+            border-radius:12px;
+            padding:28px;
+            margin-bottom:16px;
+            cursor:pointer;
+            transition:border-color .2s;
+        }
+
+        .article:hover { border-color:#6c63ff; }
+
+        .article h2 { font-size:18px; font-weight:600; margin-bottom:8px; }
+
+        .article p {
+            font-size:14px;
+            color:#666;
+            line-height:1.6;
+            margin-bottom:14px;
+        }
+
+        .meta { font-size:12px; color:#aaa; }
+
+        .empty {
+            text-align:center;
+            padding:60px;
+            color:#aaa;
+            font-size:14px;
+        }
+
+        /* Single article view */
+        .back {
+            font-size:13px;
+            color:#6c63ff;
+            cursor:pointer;
+            margin-bottom:20px;
+            display:inline-block;
+        }
+
+        .full-article { display:none; }
+        .full-article h1 { font-size:24px; font-weight:600; margin-bottom:8px; }
+        .full-article .meta { margin-bottom:24px; }
+        .full-article .body {
+            font-size:15px;
+            line-height:1.8;
+            color:#333;
+            white-space:pre-wrap;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <h1>My Blog</h1>
+</nav>
+
+<div class="container">
+
+    <!-- Article list -->
+    <div id="list-view">
+        <div id="articles"></div>
+    </div>
+
+    <!-- Single article -->
+    <div id="single-view" class="full-article">
+        <span class="back" onclick="showList()">← Back to articles</span>
+        <div class="article">
+            <h1 id="single-title"></h1>
+            <div class="meta" id="single-meta"></div>
+            <div class="body" id="single-body"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const API = 'http://localhost/cms-api/public/api';
+
+    // Load all published articles
+    async function loadArticles() {
+        try {
+            const res  = await fetch(`${API}/contents`);
+            const data = await res.json();
+
+            // Only show published ones
+            const published = data.data.filter(c => c.status === 'published');
+            renderArticles(published);
+
+        } catch (err) {
+            document.getElementById('articles').innerHTML =
+                '<div class="empty">Could not load articles</div>';
+        }
+    }
+
+    function renderArticles(articles) {
+        const container = document.getElementById('articles');
+
+        if (!articles.length) {
+            container.innerHTML = '<div class="empty">No articles published yet</div>';
+            return;
+        }
+
+        container.innerHTML = articles.map(a => `
+            <div class="article" onclick="showArticle(${a.id})">
+                <h2>${a.title}</h2>
+                <p>${a.body.substring(0, 120)}...</p>
+                <div class="meta">
+                    ${a.author_name ? 'By ' + a.author_name + ' · ' : ''}
+                    ${new Date(a.created_at).toLocaleDateString()}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Show a single article
+    async function showArticle(id) {
+        const res  = await fetch(`${API}/contents/${id}`);
+        const data = await res.json();
+        const a    = data.data;
+
+        document.getElementById('single-title').textContent = a.title;
+        document.getElementById('single-body').textContent  = a.body;
+        document.getElementById('single-meta').textContent  =
+            `${a.author_name ? 'By ' + a.author_name + ' · ' : ''}
+             ${new Date(a.created_at).toLocaleDateString()}`;
+
+        document.getElementById('list-view').style.display   = 'none';
+        document.getElementById('single-view').style.display = 'block';
+    }
+
+    function showList() {
+        document.getElementById('list-view').style.display   = 'block';
+        document.getElementById('single-view').style.display = 'none';
+    }
+
+    loadArticles();
+</script>
+</body>
+</html>
+
+

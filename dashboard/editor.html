@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article Editor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body { font-family: sans-serif; background: #f5f5f5; color: #1a1a1a; }
+
+        .navbar {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 14px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar h1 { font-size: 18px; font-weight: 600; color: #6c63ff; }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: background .2s;
+        }
+
+        .btn-primary { background: #6c63ff; color: white; }
+        .btn-primary:hover { background: #5a52d5; }
+        .btn-secondary { background: white; color: #444; border: 1px solid #ddd; }
+        .btn-secondary:hover { background: #f5f5f5; }
+
+        .container { max-width: 700px; margin: 32px auto; padding: 0 24px; }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
+            padding: 28px;
+        }
+
+        .card h2 { font-size: 18px; font-weight: 600; margin-bottom: 24px; }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #444;
+            margin-bottom: 6px;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            outline: none;
+            font-family: sans-serif;
+            transition: border-color .2s;
+        }
+
+        input:focus, textarea:focus, select:focus { border-color: #6c63ff; }
+
+        textarea { height: 240px; resize: vertical; }
+
+        .actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+        .success {
+            background: #EAF3DE;
+            color: #3B6D11;
+            border: 1px solid #97C459;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .error {
+            background: #fff0f0;
+            color: #c0392b;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <h1>My CMS</h1>
+        <button class="btn btn-secondary"
+            onclick="window.location.href='dashboard.html'">
+            Back to dashboard
+        </button>
+    </nav>
+
+    <div class="container">
+        <div class="card">
+            <h2 id="page-title">New Article</h2>
+
+            <div class="success" id="success"></div>
+            <div class="error"   id="error"></div>
+
+            <label>Title</label>
+            <input type="text" id="title" placeholder="My article title" />
+
+            <label>Body</label>
+            <textarea id="body" placeholder="Write your article here..."></textarea>
+
+            <label>Status</label>
+            <select id="status">
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+            </select>
+
+            <div class="actions">
+                <button class="btn btn-secondary"
+                    onclick="window.location.href='dashboard.html'">
+                    Cancel
+                </button>
+                <button class="btn btn-primary" onclick="save()">
+                    Save Article
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API   = 'http://localhost/cms-api/public/api';
+        const token = localStorage.getItem('token');
+
+        // Redirect if not logged in
+        if (!token) window.location.href = 'index.html';
+
+        // Check if we're editing an existing article
+        // URL will be editor.html?id=3 for editing
+        const params = new URLSearchParams(window.location.search);
+        const editId = params.get('id');
+
+        if (editId) {
+            // We're editing — load the existing article
+            document.getElementById('page-title').textContent = 'Edit Article';
+            loadArticle(editId);
+        }
+
+        async function loadArticle(id) {
+            const res  = await fetch(`${API}/contents/${id}`);
+            const data = await res.json();
+            const c    = data.data;
+
+            document.getElementById('title').value  = c.title;
+            document.getElementById('body').value   = c.body;
+            document.getElementById('status').value = c.status;
+        }
+
+        async function save() {
+            const title     = document.getElementById('title').value;
+            const body      = document.getElementById('body').value;
+            const status    = document.getElementById('status').value;
+            const successEl = document.getElementById('success');
+            const errorEl   = document.getElementById('error');
+
+            successEl.style.display = 'none';
+            errorEl.style.display   = 'none';
+
+            if (!title || !body) {
+                errorEl.textContent    = 'Title and body are required';
+                errorEl.style.display  = 'block';
+                return;
+            }
+
+            // If editing use PUT, if creating use POST
+            const method = editId ? 'PUT' : 'POST';
+            const url    = editId ? `${API}/contents/${editId}` : `${API}/contents`;
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type':  'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ title, body, status })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    errorEl.textContent   = data.error;
+                    errorEl.style.display = 'block';
+                    return;
+                }
+
+                successEl.textContent   = editId ? 'Article updated!' : 'Article created!';
+                successEl.style.display = 'block';
+
+                // Redirect back to dashboard after 1 second
+                setTimeout(() => window.location.href = 'dashboard.html', 1000);
+
+            } catch (err) {
+                errorEl.textContent   = 'Could not connect to API';
+                errorEl.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
+
